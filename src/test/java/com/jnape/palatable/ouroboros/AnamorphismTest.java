@@ -2,6 +2,7 @@ package com.jnape.palatable.ouroboros;
 
 import com.jnape.palatable.lambda.adt.Maybe;
 import com.jnape.palatable.lambda.adt.hlist.Tuple2;
+import com.jnape.palatable.lambda.functions.Fn1;
 import com.jnape.palatable.lambda.functions.builtin.fn2.Cons;
 import com.jnape.palatable.lambda.functor.Functor;
 import com.jnape.palatable.lambda.functor.builtin.Lazy;
@@ -14,7 +15,6 @@ import static com.jnape.palatable.lambda.adt.Maybe.just;
 import static com.jnape.palatable.lambda.adt.Maybe.nothing;
 import static com.jnape.palatable.lambda.adt.hlist.HList.tuple;
 import static com.jnape.palatable.lambda.functions.builtin.fn1.Constantly.constantly;
-import static com.jnape.palatable.lambda.functions.builtin.fn1.Head.head;
 import static com.jnape.palatable.lambda.functions.builtin.fn2.ToCollection.toCollection;
 import static com.jnape.palatable.lambda.functor.builtin.Lazy.lazy;
 import static com.jnape.palatable.lambda.monad.transformer.builtin.MaybeT.maybeT;
@@ -23,7 +23,6 @@ import static com.jnape.palatable.ouroboros.Catamorphism.cata;
 import static com.jnape.palatable.ouroboros.Fix.fix;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
 
 public class AnamorphismTest {
@@ -47,20 +46,17 @@ public class AnamorphismTest {
 
     @Test
     public void collatzToCata() {
-        Coalgebra<Lazy<Iterable<Integer>>, MaybeT<Tuple2<Integer, ?>, Lazy<Iterable<Integer>>>> coalgebra = x -> {
-            Integer value = head(x.value()).orElse(1);
-            return value == 1 ? maybeT(tuple(value, nothing()))
-                    : value % 2 == 0 ? maybeT(tuple(value, just(lazy(singletonList(value / 2))))) : maybeT(tuple(value, just(lazy(singletonList(3 * value + 1)))));
-        };
+        Coalgebra<Long, MaybeT<Tuple2<Long, ?>, Long>> coalgebra = x -> x == 1 ? maybeT(tuple(x, nothing()))
+                : x % 2 == 0 ? maybeT(tuple(x, just(x / 2))) : maybeT(tuple(x, just(3 * x + 1)));
 
-        Algebra<MaybeT<Tuple2<Integer, ?>, Lazy<Iterable<Integer>>>, Lazy<Iterable<Integer>>> algebra = mtii -> {
-            Tuple2<Integer, Maybe<Lazy<Iterable<Integer>>>> run = mtii.run();
+        Algebra<MaybeT<Tuple2<Long, ?>, Lazy<Iterable<Long>>>, Lazy<Iterable<Long>>> algebra = mtii -> {
+            Tuple2<Long, Maybe<Lazy<Iterable<Long>>>> run = mtii.run();
             return lazy(Cons.cons(run._1(), run._2().match(constantly(emptyList()),
                     Lazy::value)));
         };
 
-        assertEquals(toCollection(ArrayList::new, cata(algebra, ana(coalgebra, lazy(singletonList(3)))).value()),
-                asList(3, 10, 5, 16, 8, 4, 2, 1));
+        Fn1<Long, Lazy<Iterable<Long>>> hylo = ana(coalgebra).fmap(cata(algebra));
+        assertEquals(toCollection(ArrayList::new, hylo.apply(3L).value()), asList(3L, 10L, 5L, 16L, 8L, 4L, 2L, 1L));
     }
 
 }
